@@ -88,8 +88,17 @@ if uploaded_files:
         lon, lat = parse_filename(uploaded_file.name)
         status = "RISK" if pred.item() == 1 else "NO RISK"
         
+        # FIX: Define the color here based on the status
+        point_color = [255, 69, 0, 160] if status == "RISK" else [0, 255, 0, 160]
+        
         if lon and lat:
-            map_data.append({"lon": lon, "lat": lat, "status": status, "confidence": score.item()})
+            map_data.append({
+                "lon": lon, 
+                "lat": lat, 
+                "status": status, 
+                "confidence": score.item(),
+                "color": point_color  # Added color to the dictionary
+            })
 
     # --- TOP METRICS ---
     risk_count = sum(1 for d in map_data if d['status'] == "RISK")
@@ -105,18 +114,32 @@ if uploaded_files:
         st.subheader("Regional Risk Distribution")
         if map_data:
             df_map = pd.DataFrame(map_data)
+            
+            # FIX: Point get_color directly to the "color" column
             layer = pdk.Layer(
                 "ScatterplotLayer",
                 df_map,
                 get_position=["lon", "lat"],
-                get_color="[255, 69, 0, 160] if status == 'RISK' else [0, 255, 0, 160]",
+                get_color="color",  
                 get_radius=5000,
                 pickable=True
             )
-            st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=pdk.ViewState(latitude=df_map['lat'].mean(), longitude=df_map['lon'].mean(), zoom=5, pitch=45)))
+            
+            # Center map on the data points
+            avg_lat = df_map['lat'].mean()
+            avg_lon = df_map['lon'].mean()
+            
+            st.pydeck_chart(pdk.Deck(
+                layers=[layer], 
+                initial_view_state=pdk.ViewState(
+                    latitude=avg_lat, 
+                    longitude=avg_lon, 
+                    zoom=5, 
+                    pitch=45
+                )
+            ))
         else:
             st.info("Upload images with filenames like 'longitude,latitude.jpg' to see them on the map.")
-
     with tab2:
         st.subheader("Deep Learning Interpretability")
         selected_file = st.selectbox("Select image for XAI analysis", [f.name for f in uploaded_files])
